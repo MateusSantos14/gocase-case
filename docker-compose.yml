@@ -1,0 +1,92 @@
+services:
+  db:
+    image: postgres:15
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: src/Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./src:/app/src:Z
+      - ./.env:/app/.env:Z
+      - ./dados:/app/dados:Z
+      - ./relatorios:/app/relatorios:Z
+    environment:
+      - IS_DOCKER=true
+      - DB_HOST=db
+      - DB_PORT=5432
+      - GEMINI_API_KEY=${GOOGLE_API_KEY}
+      - WEBHOOK_URL=http://n8n-main:5678/webhook/${N8N_WEBHOOK_ID}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n-main
+    restart: unless-stopped
+    command: start
+    environment:
+      # --- URL ESTÁTICA CONFIGURADA ---
+      - WEBHOOK_URL=https://unparking-forestial-danna.ngrok-free.dev
+      - N8N_EDITOR_BASE_URL=https://unparking-forestial-danna.ngrok-free.dev
+
+      # --- PERFORMANCE E SISTEMA ---
+      - N8N_PROXY_HOPS=1
+      - DB_SQLITE_POOL_SIZE=10
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - TZ=America/Sao_Paulo
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - db
+
+  tunnel:
+    image: ngrok/ngrok:latest
+    container_name: ngrok-tunnel
+    restart: unless-stopped
+    environment:
+      # Recomendo colocar o token em um arquivo .env
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command:
+      - http
+      - nginx:80
+      - --domain=unparking-forestial-danna.ngrok-free.dev
+    depends_on:
+      - nginx
+
+  nginx:
+    image: nginx:latest
+    container_name: gocase-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro,Z
+      - ./nginx/.htpasswd:/etc/nginx/.htpasswd:ro,Z
+    depends_on:
+      - n8n
+      - streamlit
+
+volumes:
+  postgres_data:
+  n8n_data:

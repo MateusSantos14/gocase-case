@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Variáveis de Ambiente e Segredos
+.env
+nginx/.htpasswd
+SECRETS.md
+
+# Dados e Relatórios Gerados
+relatorios/*
+!relatorios/.gitkeep
+postgres_data/
+n8n_data/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos de Log e Temporários
+*.log
+tmp/
