@@ -23,3 +23,5 @@ Thumbs.db
 # Arquivos de Log e Temporários
 *.log
 tmp/
+
+dados/*
